@@ -634,7 +634,7 @@ async function quickConnect(){
     if(!hasCreds && !hasData){
       if(hasPlain){
         setSyncDot('err');
-        toast('⚠️ Ce Gist n\\'est pas chiffré (sauvegardé sans mot de passe) — la connexion rapide ne fonctionne que sur des Gists protégés.','err');
+        toast('⚠ Gist non chiffré — sauvegardé sans mot de passe. Utilisez Push avec mot de passe pour activer la connexion rapide.','err');
       }else{
         setSyncDot('err');
         toast('Aucune donnée reconnue dans ce Gist.','err');
