@@ -164,6 +164,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .mf label{display:block;font-size:11px;color:var(--tm);margin-bottom:4px;letter-spacing:.03em}
 .mf .gi{width:100%}
 .mrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.mrow2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+details summary{cursor:pointer;font-size:12px;color:var(--tm);padding:10px 0;border-top:.5px solid var(--b);margin-bottom:4px;list-style:none;user-select:none;transition:color .18s}
+details summary::-webkit-details-marker{display:none}
+details[open] summary{color:var(--t2)}
+.qc-box{background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(139,92,246,.06));border:.5px solid rgba(0,212,255,.2);border-radius:var(--rad);padding:16px;margin-bottom:18px}
+.qc-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;background:linear-gradient(130deg,var(--c),var(--v));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px}
+.qc-sub{font-size:11.5px;color:var(--t2);margin-bottom:14px;line-height:1.5}
 .acw{position:relative}
 .tmdd{display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--s2);border:.5px solid var(--bb);border-radius:0 0 8px 8px;max-height:210px;overflow-y:auto;z-index:400}
 .tmdd.show{display:block}
@@ -328,32 +335,56 @@ kbd{display:inline-block;background:var(--s2);border:.5px solid var(--bb);border
 <div id="mST" class="mo" onclick="ovClick(event,'mST')">
   <div class="mb lg" onclick="event.stopPropagation()">
     <div class="mhd"><span class="mtit">⚙ Paramètres</span><button class="mcls" onclick="closeM('mST')">×</button></div>
-    <div class="ss">
-      <div class="sstit">🎬 TMDB — Affiches & Autocomplétion</div>
-      <div class="mf">
-        <label>Clé API TMDB (v3)</label>
-        <div class="eyw"><input type="password" id="tmKey" class="gi" placeholder="Coller ta clé API…" oninput="localStorage.setItem('tmdbKey',this.value)"><button class="eyb" onclick="toggleEye('tmKey',this)">👁</button></div>
-        <p class="snote">Gratuit sur <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a> — inscris-toi, puis copie la <strong>clé API v3</strong>. Sans clé, l'app fonctionne normalement sans autocomplétion.</p>
+
+    <!-- ① CONNEXION RAPIDE (toujours visible, mise en avant) -->
+    <div class="qc-box">
+      <div class="qc-title">🔐 Connexion rapide — nouvel appareil / navigateur</div>
+      <p class="qc-sub">Entre ton Gist ID et ton mot de passe : l'app charge tout automatiquement — données, clé TMDB et token GitHub.</p>
+      <div class="mrow2">
+        <div class="mf"><label>Gist ID ou URL</label><input id="qcGist" class="gi" type="text" placeholder="ex: a1b2c3d4e5f6…"></div>
+        <div class="mf"><label>Mot de passe</label><div class="eyw"><input id="qcPass" class="gi" type="password" placeholder="Ton mot de passe…"><button class="eyb" onclick="toggleEye('qcPass',this)">👁</button></div></div>
       </div>
+      <button class="bpr" style="width:100%;margin-top:2px" onclick="quickConnect()">🔓 Charger tout automatiquement</button>
     </div>
-    <div class="ss">
-      <div class="sstit">☁ GitHub Gist — Sync multi-appareils</div>
-      <div class="mf">
-        <label>Personal Access Token GitHub</label>
-        <div class="eyw"><input type="password" id="ghTok" class="gi" placeholder="ghp_…" oninput="localStorage.setItem('ghToken',this.value)"><button class="eyb" onclick="toggleEye('ghTok',this)">👁</button></div>
-        <p class="snote">Créer sur <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens</a> — scope <kbd>gist</kbd> uniquement. Stocké localement, jamais envoyé ailleurs.</p>
+
+    <!-- ② CONFIG INITIALE (repliable, pour la 1ère fois) -->
+    <details>
+      <summary>⚙ Configuration initiale — première fois seulement ▸</summary>
+
+      <div class="ss" style="margin-top:14px">
+        <div class="sstit">🎬 TMDB — Affiches & Autocomplétion</div>
+        <div class="mf">
+          <label>Clé API TMDB (v3)</label>
+          <div class="eyw"><input type="password" id="tmKey" class="gi" placeholder="Coller ta clé…" oninput="localStorage.setItem('tmdbKey',this.value)"><button class="eyb" onclick="toggleEye('tmKey',this)">👁</button></div>
+          <p class="snote">Gratuit sur <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a> — scope : aucun. Copie la <strong>clé API v3</strong>.</p>
+        </div>
       </div>
-      <div class="mf">
-        <label>Gist ID <span style="color:var(--tm)">(auto-rempli après le 1er Push)</span></label>
-        <input id="ghGist" class="gi" type="text" placeholder="Auto-rempli…" oninput="localStorage.setItem('ghGistId',this.value)">
+
+      <div class="ss">
+        <div class="sstit">☁ GitHub Gist — Synchronisation</div>
+        <div class="mf">
+          <label>Personal Access Token GitHub</label>
+          <div class="eyw"><input type="password" id="ghTok" class="gi" placeholder="ghp_…" oninput="localStorage.setItem('ghToken',this.value)"><button class="eyb" onclick="toggleEye('ghTok',this)">👁</button></div>
+          <p class="snote">Créer sur <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens</a> — scope <kbd>gist</kbd> uniquement.</p>
+        </div>
+        <div class="mf">
+          <label>Mot de passe maître <span style="color:var(--c);font-weight:600">(recommandé)</span></label>
+          <div class="eyw"><input type="password" id="ghPass" class="gi" placeholder="Invente un mot de passe solide…" oninput="localStorage.setItem('ghPass',this.value)"><button class="eyb" onclick="toggleEye('ghPass',this)">👁</button></div>
+          <p class="snote">Avec un mot de passe, toutes tes données <strong>et</strong> tes clés sont chiffrées (AES-256) avant d'être envoyées. Sur un nouvel appareil, il suffira d'entrer le Gist ID + ce mot de passe ci-dessus. <strong>Sans mot de passe</strong> : sync classique, données en clair, Gist privé.</p>
+        </div>
+        <div class="mf">
+          <label>Gist ID <span style="color:var(--tm)">(auto-rempli après le 1er Push)</span></label>
+          <input id="ghGist" class="gi" type="text" placeholder="Auto-rempli…" oninput="localStorage.setItem('ghGistId',this.value)">
+        </div>
+        <div class="sbts">
+          <button class="sbtn pu" onclick="pushGist()">↑ Push — sauvegarder</button>
+          <button class="sbtn pl" onclick="pullGist()">↓ Pull — restaurer</button>
+        </div>
       </div>
-      <div class="sbts">
-        <button class="sbtn pu" onclick="pushGist()">↑ Push — sauvegarder en ligne</button>
-        <button class="sbtn pl" onclick="pullGist()">↓ Pull — restaurer depuis le cloud</button>
-      </div>
-      <p class="snote" style="margin-top:7px">Le Gist est <strong>privé</strong> par défaut.</p>
-    </div>
-    <div class="ss">
+    </details>
+
+    <!-- ③ BACKUP LOCAL -->
+    <div class="ss" style="margin-top:14px">
       <div class="sstit">💾 Backup local JSON</div>
       <div style="display:flex;gap:8px">
         <button class="sbtn" onclick="exportData()">↓ Exporter</button>
@@ -361,6 +392,7 @@ kbd{display:inline-block;background:var(--s2);border:.5px solid var(--bb);border
         <input type="file" id="imp2" accept=".json" style="display:none" onchange="importData(this)">
       </div>
     </div>
+
     <div class="mact"><button class="bpr" onclick="closeM('mST')">Fermer</button></div>
   </div>
 </div>
@@ -557,32 +589,133 @@ function pickTmdb(i){
 }
 function clearPoster(){pendPoster=null;pendTmdb=null;document.getElementById('ppw').className='ppw';}
 
-/* GITHUB GIST */
+/* ════ CRYPTO (AES-256-GCM + PBKDF2) ════ */
+async function cryptoKey(pass,salt){
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),{name:'PBKDF2'},false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:120000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function encData(text,pass){
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const key=await cryptoKey(pass,salt);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(text));
+  const buf=new Uint8Array(28+ct.byteLength);buf.set(salt);buf.set(iv,16);buf.set(new Uint8Array(ct),28);
+  return btoa(String.fromCharCode(...buf));
+}
+async function decData(b64,pass){
+  const buf=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+  const key=await cryptoKey(pass,buf.slice(0,16));
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(16,28)},key,buf.slice(28));
+  return new TextDecoder().decode(plain);
+}
+
+/* ════ QUICK CONNECT — nouvel appareil ════ */
+async function quickConnect(){
+  const raw=document.getElementById('qcGist').value.trim();
+  const pass=document.getElementById('qcPass').value;
+  if(!raw||!pass){toast('Entre le Gist ID et ton mot de passe.','warn');return;}
+  // Accept full URL or bare ID
+  const gid=raw.replace(/.*gist\.github\.com\/[^/]+\//,'').split(/[#?]/)[0].trim();
+  setSyncDot('syncing');
+  toast('Connexion en cours…','warn');
+  try{
+    // Public Gist readable without auth; private ones need token (we try both)
+    const tok=localStorage.getItem('ghToken')||'';
+    const headers=tok?{'Authorization':`Bearer ${tok}`}:{};
+    const r=await fetch(`https://api.github.com/gists/${gid}`,{headers});
+    if(!r.ok)throw new Error(`Gist introuvable (${r.status})`);
+    const gist=await r.json();
+
+    // ① Decrypt credentials if present
+    if(gist.files?.['credentials.enc']?.content){
+      let creds;
+      try{creds=JSON.parse(await decData(gist.files['credentials.enc'].content,pass));}
+      catch{setSyncDot('err');toast('Mot de passe incorrect — déchiffrement échoué.','err');return;}
+      if(creds.tmdbKey){localStorage.setItem('tmdbKey',creds.tmdbKey);}
+      if(creds.ghToken){localStorage.setItem('ghToken',creds.ghToken);}
+      if(creds.ghPass) {localStorage.setItem('ghPass', creds.ghPass);}
+    }
+
+    // ② Load data (encrypted or plain)
+    if(gist.files?.['data.enc']?.content){
+      let raw2;
+      try{raw2=JSON.parse(await decData(gist.files['data.enc'].content,pass));}
+      catch{setSyncDot('err');toast('Mot de passe incorrect — données illisibles.','err');return;}
+      if(raw2.films) films=raw2.films;
+      if(raw2.series)series=raw2.series;
+    }else if(gist.files?.['cinematheque.json']?.content){
+      const d=JSON.parse(gist.files['cinematheque.json'].content);
+      if(d.films) films=d.films;
+      if(d.series)series=d.series;
+    }
+
+    // ③ Persist
+    localStorage.setItem('ghGistId',gid);
+    localStorage.setItem('ghPass',pass);
+    save();setSyncDot('ok');
+    toast('✓ Connecté — données + clés chargées !','ok');
+    setTimeout(()=>setSyncDot(''),4000);
+    closeM('mST');
+  }catch(e){setSyncDot('err');toast('Erreur : '+e.message,'err');}
+}
+
+/* ════ PUSH ════ */
 async function pushGist(){
   const tok=localStorage.getItem('ghToken');
   if(!tok){openSettings();toast('Configure ton token GitHub dans les paramètres.','warn');return;}
   setSyncDot('syncing');
-  const gid=localStorage.getItem('ghGistId');
-  const body=JSON.stringify({description:'Ma Cinémathèque — backup',public:false,files:{'cinematheque.json':{content:JSON.stringify({films,series,v:3},null,2)}}});
+  const gid =localStorage.getItem('ghGistId');
+  const pass=localStorage.getItem('ghPass')||document.getElementById('ghPass')?.value||'';
+  const files={};
+
+  if(pass){
+    // Encrypt data + credentials separately
+    files['data.enc']       ={content:await encData(JSON.stringify({films,series,v:3}),pass)};
+    files['credentials.enc']={content:await encData(JSON.stringify({tmdbKey:localStorage.getItem('tmdbKey')||'',ghToken:tok,ghPass:pass}),pass)};
+  }else{
+    files['cinematheque.json']={content:JSON.stringify({films,series,v:3},null,2)};
+  }
+
+  const body=JSON.stringify({
+    description:'Ma Cinémathèque — backup',
+    public:!!pass,  // public when encrypted (readable without token on new device)
+    files
+  });
   try{
-    const r=await fetch(gid?`https://api.github.com/gists/${gid}`:'https://api.github.com/gists',{method:gid?'PATCH':'POST',headers:{'Authorization':`Bearer ${tok}`,'Content-Type':'application/json'},body});
+    const r=await fetch(gid?`https://api.github.com/gists/${gid}`:'https://api.github.com/gists',
+      {method:gid?'PATCH':'POST',headers:{'Authorization':`Bearer ${tok}`,'Content-Type':'application/json'},body});
     const d=await r.json();
-    if(d.id){localStorage.setItem('ghGistId',d.id);document.getElementById('ghGist').value=d.id;setSyncDot('ok');toast('Données sauvegardées sur GitHub Gist ✓');setTimeout(()=>setSyncDot(''),4000);}
-    else{setSyncDot('err');toast(d.message||'Erreur GitHub','err');}
+    if(d.id){
+      localStorage.setItem('ghGistId',d.id);
+      const el=document.getElementById('ghGist');if(el)el.value=d.id;
+      setSyncDot('ok');
+      toast(pass?`✓ Sauvegardé et chiffré (ID: ${d.id.slice(0,8)}…)`:'✓ Données sauvegardées','ok');
+      setTimeout(()=>setSyncDot(''),4000);
+    }else{setSyncDot('err');toast(d.message||'Erreur GitHub','err');}
   }catch(e){setSyncDot('err');toast('Connexion échouée','err');}
 }
+
+/* ════ PULL ════ */
 async function pullGist(){
   const tok=localStorage.getItem('ghToken'),gid=localStorage.getItem('ghGistId');
-  if(!tok||!gid){openSettings();toast('Configure token + Gist ID dans les paramètres.','warn');return;}
+  if(!gid){openSettings();toast('Configure le Gist ID dans les paramètres.','warn');return;}
   setSyncDot('syncing');
   try{
-    const r=await fetch(`https://api.github.com/gists/${gid}`,{headers:{'Authorization':`Bearer ${tok}`}});
+    const headers=tok?{'Authorization':`Bearer ${tok}`}:{};
+    const r=await fetch(`https://api.github.com/gists/${gid}`,{headers});
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const d=await r.json();
-    const content=JSON.parse(d.files?.['cinematheque.json']?.content||'{}');
-    if(content.films)films=content.films;if(content.series)series=content.series;
-    save();setSyncDot('ok');toast('Données restaurées depuis GitHub Gist ✓');setTimeout(()=>setSyncDot(''),4000);
-  }catch(e){setSyncDot('err');toast('Connexion échouée','err');}
+    const pass=localStorage.getItem('ghPass')||'';
+    if(d.files?.['data.enc']?.content&&pass){
+      const dec=JSON.parse(await decData(d.files['data.enc'].content,pass));
+      if(dec.films) films=dec.films;if(dec.series)series=dec.series;
+    }else if(d.files?.['cinematheque.json']?.content){
+      const c=JSON.parse(d.files['cinematheque.json'].content);
+      if(c.films)films=c.films;if(c.series)series=c.series;
+    }else{throw new Error('Fichier de données introuvable dans le Gist');}
+    save();setSyncDot('ok');toast('✓ Données restaurées','ok');setTimeout(()=>setSyncDot(''),4000);
+  }catch(e){setSyncDot('err');toast('Erreur : '+e.message,'err');}
 }
+
 function setSyncDot(st){document.getElementById('sdot').className='sdot'+(st?' '+st:'');}
 
 /* ADD / EDIT */
@@ -657,9 +790,16 @@ function ovClick(e,id){if(e.target===document.getElementById(id))closeM(id)}
 function customCF(msg,fn){pendAct=fn;document.getElementById('cfMsg').textContent=msg;openM('mCF');}
 function doConfirm(){if(pendAct){pendAct();pendAct=null;}closeM('mCF')}
 function openSettings(){
+  const gid=localStorage.getItem('ghGistId')||'';
+  const pass=localStorage.getItem('ghPass')||'';
+  // Quick connect pre-fill (same device convenience)
+  document.getElementById('qcGist').value=gid;
+  document.getElementById('qcPass').value=pass;
+  // Advanced fields
   document.getElementById('tmKey').value=localStorage.getItem('tmdbKey')||'';
   document.getElementById('ghTok').value=localStorage.getItem('ghToken')||'';
-  document.getElementById('ghGist').value=localStorage.getItem('ghGistId')||'';
+  document.getElementById('ghPass').value=pass;
+  document.getElementById('ghGist').value=gid;
   openM('mST');
 }
 function toggleEye(id,btn){const el=document.getElementById(id);el.type=el.type==='password'?'text':'password';btn.textContent=el.type==='password'?'👁':'🙈';}
