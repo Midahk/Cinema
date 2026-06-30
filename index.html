@@ -618,34 +618,47 @@ async function quickConnect(){
   setSyncDot('syncing');
   toast('Connexion en cours…','warn');
   try{
-    // Public Gist readable without auth; private ones need token (we try both)
     const tok=localStorage.getItem('ghToken')||'';
     const headers=tok?{'Authorization':`Bearer ${tok}`}:{};
     const r=await fetch(`https://api.github.com/gists/${gid}`,{headers});
     if(!r.ok)throw new Error(`Gist introuvable (${r.status})`);
     const gist=await r.json();
 
-    // ① Decrypt credentials if present
-    if(gist.files?.['credentials.enc']?.content){
-      let creds;
-      try{creds=JSON.parse(await decData(gist.files['credentials.enc'].content,pass));}
-      catch{setSyncDot('err');toast('Mot de passe incorrect — déchiffrement échoué.','err');return;}
-      if(creds.tmdbKey){localStorage.setItem('tmdbKey',creds.tmdbKey);}
-      if(creds.ghToken){localStorage.setItem('ghToken',creds.ghToken);}
-      if(creds.ghPass) {localStorage.setItem('ghPass', creds.ghPass);}
+    const hasCreds = !!gist.files?.['credentials.enc']?.content;
+    const hasData  = !!gist.files?.['data.enc']?.content;
+    const hasPlain = !!gist.files?.['cinematheque.json']?.content;
+
+    // ── BUG FIX : un Gist sans fichiers .enc n'a JAMAIS été chiffré.
+    // Dans ce cas le mot de passe ne PEUT RIEN vérifier — on le dit clairement
+    // au lieu de charger silencieusement comme si tout était bon.
+    if(!hasCreds && !hasData){
+      if(hasPlain){
+        setSyncDot('err');
+        toast('⚠️ Ce Gist n\\'est pas chiffré (sauvegardé sans mot de passe) — la connexion rapide ne fonctionne que sur des Gists protégés.','err');
+      }else{
+        setSyncDot('err');
+        toast('Aucune donnée reconnue dans ce Gist.','err');
+      }
+      return;
     }
 
-    // ② Load data (encrypted or plain)
-    if(gist.files?.['data.enc']?.content){
-      let raw2;
-      try{raw2=JSON.parse(await decData(gist.files['data.enc'].content,pass));}
-      catch{setSyncDot('err');toast('Mot de passe incorrect — données illisibles.','err');return;}
-      if(raw2.films) films=raw2.films;
-      if(raw2.series)series=raw2.series;
-    }else if(gist.files?.['cinematheque.json']?.content){
-      const d=JSON.parse(gist.files['cinematheque.json'].content);
-      if(d.films) films=d.films;
-      if(d.series)series=d.series;
+    // ① Déchiffrer les identifiants — échoue forcément si le mot de passe est faux
+    //    (AES-GCM rejette le tag d'authentification → exception garantie)
+    if(hasCreds){
+      let creds;
+      try{ creds=JSON.parse(await decData(gist.files['credentials.enc'].content,pass)); }
+      catch{ setSyncDot('err'); toast('Mot de passe incorrect.','err'); return; }
+      if(creds.tmdbKey) localStorage.setItem('tmdbKey',creds.tmdbKey);
+      if(creds.ghToken) localStorage.setItem('ghToken',creds.ghToken);
+    }
+
+    // ② Déchiffrer les données — même garantie cryptographique
+    if(hasData){
+      let dec;
+      try{ dec=JSON.parse(await decData(gist.files['data.enc'].content,pass)); }
+      catch{ setSyncDot('err'); toast('Mot de passe incorrect.','err'); return; }
+      if(dec.films) films=dec.films;
+      if(dec.series)series=dec.series;
     }
 
     // ③ Persist
@@ -659,11 +672,12 @@ async function quickConnect(){
 }
 
 /* ════ PUSH ════ */
-async function pushGist(){
+async function pushGist(silent=false){
   const tok=localStorage.getItem('ghToken');
-  if(!tok){openSettings();toast('Configure ton token GitHub dans les paramètres.','warn');return;}
-  setSyncDot('syncing');
+  if(!tok){ if(!silent){openSettings();toast('Configure ton token GitHub dans les paramètres.','warn');} return; }
   const gid =localStorage.getItem('ghGistId');
+  if(silent && !gid) return; // auto-push needs an existing Gist target, never creates one silently
+  setSyncDot('syncing');
   const pass=localStorage.getItem('ghPass')||document.getElementById('ghPass')?.value||'';
   const files={};
 
@@ -688,10 +702,10 @@ async function pushGist(){
       localStorage.setItem('ghGistId',d.id);
       const el=document.getElementById('ghGist');if(el)el.value=d.id;
       setSyncDot('ok');
-      toast(pass?`✓ Sauvegardé et chiffré (ID: ${d.id.slice(0,8)}…)`:'✓ Données sauvegardées','ok');
+      toast(silent ? '☁ Sync auto effectuée' : (pass?`✓ Sauvegardé et chiffré (ID: ${d.id.slice(0,8)}…)`:'✓ Données sauvegardées'),'ok');
       setTimeout(()=>setSyncDot(''),4000);
-    }else{setSyncDot('err');toast(d.message||'Erreur GitHub','err');}
-  }catch(e){setSyncDot('err');toast('Connexion échouée','err');}
+    }else{setSyncDot('err');if(!silent)toast(d.message||'Erreur GitHub','err');}
+  }catch(e){setSyncDot('err');if(!silent)toast('Connexion échouée','err');}
 }
 
 /* ════ PULL ════ */
@@ -835,8 +849,52 @@ function importData(inp){
   r.readAsText(f);inp.value='';
 }
 
+/* ════ AUTO-PUSH TOUTES LES 60 MINUTES ════ */
+const AUTO_PUSH_MS = 60 * 60 * 1000; // 1 heure
+let autoNextAt = parseInt(localStorage.getItem('autoNextAt') || '0');
+
+function scheduleAutoPush() {
+  const now = Date.now();
+  // Si pas encore planifié (premier lancement), on planifie dans 1h
+  if (!autoNextAt || autoNextAt < now) {
+    autoNextAt = now + AUTO_PUSH_MS;
+    localStorage.setItem('autoNextAt', autoNextAt);
+  }
+  updateSyncTitle();
+  // Tick toutes les 30s pour mettre à jour le tooltip
+  setTimeout(tickAutoPush, 30_000);
+}
+
+async function tickAutoPush() {
+  const now = Date.now();
+  if (now >= autoNextAt) {
+    autoNextAt = now + AUTO_PUSH_MS;
+    localStorage.setItem('autoNextAt', autoNextAt);
+    await pushGist(true); // silent=true → pas de modal, toast discret
+  }
+  updateSyncTitle();
+  setTimeout(tickAutoPush, 30_000);
+}
+
+function updateSyncTitle() {
+  const btn = document.getElementById('syncBtn');
+  if (!btn) return;
+  const tok = localStorage.getItem('ghToken');
+  const gid = localStorage.getItem('ghGistId');
+  if (!tok || !gid) {
+    btn.title = 'GitHub Sync — non configuré (⚙ Paramètres)';
+    return;
+  }
+  const mins = Math.max(0, Math.round((autoNextAt - Date.now()) / 60_000));
+  const h = Math.floor(mins / 60), m = mins % 60;
+  const next = h > 0 ? `${h}h${m.toString().padStart(2,'0')}` : `${m} min`;
+  btn.title = `GitHub Sync — prochain auto-push dans ${next}`;
+}
+
 /* INIT */
-setView(view);render();
+setView(view);
+render();
+scheduleAutoPush();
 </script>
 </body>
 </html>
